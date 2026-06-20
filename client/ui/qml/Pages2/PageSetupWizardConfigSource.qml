@@ -104,11 +104,11 @@ PageType {
                             clickedFunction: function() {
                                 var fileName = ""
                                 if (GC.isMobile()) {
-                                    fileName = "AmneziaVPN.log"
+                                    fileName = "RoninVPN.log"
                                 } else {
                                     fileName = SystemController.getFileName(qsTr("Save"),
                                                                             qsTr("Logs files (*.log)"),
-                                                                            StandardPaths.standardLocations(StandardPaths.DocumentsLocation) + "/AmneziaVPN",
+                                                                            StandardPaths.standardLocations(StandardPaths.DocumentsLocation) + "/RoninVPN",
                                                                             true,
                                                                             ".log")
                                 }

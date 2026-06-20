@@ -149,7 +149,7 @@ PageType {
                 text: qsTr("Check for updates")
 
                 clickedFunc: function() {
-                    Qt.openUrlExternally("https://github.com/amnezia-vpn/desktop-client/releases/latest")
+                    Qt.openUrlExternally("https://github.com/antonkoulakoffcom-create/roninvpn-client/releases/latest")
                 }
             }
 
