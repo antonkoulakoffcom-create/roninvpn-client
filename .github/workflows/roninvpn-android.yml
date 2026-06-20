@@ -1,0 +1,98 @@
+name: RoninVPN Android
+
+# Custom fork workflow: builds an installable (self-signed) RoninVPN APK for
+# arm64-v8a on a GitHub-hosted runner. Mirrors upstream Build-Android but drops
+# the self-hosted runner, the private Conan remote and Amnezia's signing secrets.
+on:
+  workflow_dispatch:
+  push:
+    branches: [ dev ]
+    paths:
+      - 'client/**'
+      - 'deploy/**'
+      - '.github/workflows/roninvpn-android.yml'
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_PLATFORM: android-28
+      NDK_VERSION: 27.0.11718014
+      ANDROID_NDK_VERSION: 27.0.11718014
+      QT_VERSION: 6.10.3
+      QT_MODULES: 'qtremoteobjects qt5compat qtimageformats qtshadertools'
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+
+      - name: Install desktop Qt (host)
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: linux
+          target: desktop
+          arch: linux_gcc_64
+          modules: ${{ env.QT_MODULES }}
+          dir: ${{ runner.temp }}
+          py7zrversion: '==0.22.*'
+
+      - name: Install android_arm64_v8a Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: linux
+          target: android
+          arch: android_arm64_v8a
+          modules: ${{ env.QT_MODULES }}
+          dir: ${{ runner.temp }}
+          py7zrversion: '==0.22.*'
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK + NDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: "platforms;${{ env.ANDROID_PLATFORM }} ndk;${{ env.NDK_VERSION }}"
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install + init Conan
+        run: |
+          pip install "conan==2.28.0"
+          conan profile detect --force
+
+      - name: Install system packages
+        run: sudo apt-get update && sudo apt-get install -y ninja-build libxkbcommon-x11-0
+
+      - name: Generate throwaway signing keystore
+        run: |
+          keytool -genkeypair -keystore "$GITHUB_WORKSPACE/android.keystore" \
+            -alias ronin -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass roninvpn -keypass roninvpn \
+            -dname "CN=RoninVPN, O=RoninVPN, C=NA"
+
+      - name: Build RoninVPN APK (arm64-v8a)
+        env:
+          QT_INSTALL_DIR: ${{ runner.temp }}
+          QT_ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/android.keystore
+          QT_ANDROID_KEYSTORE_ALIAS: ronin
+          QT_ANDROID_KEYSTORE_STORE_PASS: roninvpn
+          QT_ANDROID_KEYSTORE_KEY_PASS: roninvpn
+        run: |
+          deploy/build.sh -t android --sign --abi arm64-v8a --build ./deploy/build/arm64-v8a
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: RoninVPN-android-arm64-v8a
+          path: deploy/build/arm64-v8a/client/android-build/*.apk
+          retention-days: 7
